@@ -1,0 +1,15 @@
+FROM oven/bun:1-alpine AS frontend-builder
+WORKDIR /app
+COPY src/frontend/package.json src/frontend/bun.lock ./
+RUN bun install --frozen-lockfile
+COPY pyproject.toml .
+COPY src/frontend/ .
+# Feature flags front-end (cf. src/config/features.ts) — Vite les inline au build.
+# Activés en prod via docker-compose.prod.yml (build args) ; absents = masqués.
+ARG VITE_FEATURE_EXAMPLE
+ENV VITE_FEATURE_EXAMPLE=$VITE_FEATURE_EXAMPLE
+RUN bun run build
+
+FROM nginx:alpine
+COPY --from=frontend-builder /app/dist /usr/share/nginx/html/frontend
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf

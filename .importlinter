@@ -1,0 +1,21 @@
+[importlinter]
+root_package = api
+include_external_packages = True
+
+[importlinter:contract:onion]
+name = Onion : app -> domain -> infra (aucun import vers le haut)
+type = layers
+layers =
+    api.app
+    api.domain
+    api.infra
+
+[importlinter:contract:domain-stateless]
+name = domain = sans état (ni base, ni HTTP)
+type = forbidden
+source_modules =
+    api.domain
+forbidden_modules =
+    sqlalchemy
+    fastapi
+    api.infra.db

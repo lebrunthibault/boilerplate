@@ -1,0 +1,57 @@
+name: boilerplate
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api.dev
+    # Marge pour l'arrêt propre des tâches de fond avant SIGKILL.
+    stop_grace_period: 30s
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../src/api:/app/src/api
+      - ../scripts:/app/scripts
+    env_file:
+      - ../.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://app:app@postgres:5432/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ../src/frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5173:5173"
+    environment:
+      API_URL: http://api:8000
+    volumes:
+      - ../pyproject.toml:/app/pyproject.toml:ro
+      - ../src/frontend/src:/app/src
+      - ../src/frontend/public:/app/public
+      - ../src/frontend/index.html:/app/index.html
+      - ../src/frontend/vite.config.ts:/app/vite.config.ts:ro
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

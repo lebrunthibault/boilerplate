@@ -1,0 +1,35 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.env
+.env*.local
+.idea/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.import_linter_cache/
+
+# Frontend
+src/frontend/node_modules/
+src/frontend/dist/
+src/frontend/.vite/
+src/frontend/*.tsbuildinfo
+
+# Logs
+.api.log
+
+# Database
+pgdata/
+
+# Local data (dumps)
+data/
+
+# Worktrees
+.worktrees/
+
+# WSL : marqueurs de zone (fichiers téléchargés)
+*:Zone.Identifier
+
+# LibreOffice : fichiers de verrou temporaires
+.~lock.*#

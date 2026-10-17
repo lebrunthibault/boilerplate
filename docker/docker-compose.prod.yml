@@ -1,0 +1,118 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    # Bind loopback uniquement : accès depuis un tunnel SSH (DataGrip, psql local).
+    # Sans le préfixe 127.0.0.1, Docker publierait sur 0.0.0.0 en contournant ufw.
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    # Marge pour l'arrêt propre des tâches de fond avant SIGKILL.
+    stop_grace_period: 30s
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: ../.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # Prod-ité versionnée, et non suspendue à une ligne du .env du serveur (non suivi en git) :
+      # tout le durcissement en dépend — cookie Secure + __Host-, rate limit public, purge de
+      # rétention, fail-closed ALLOWED_ORIGINS/SERVICE_API_KEY. Une variable disparue rendrait
+      # IS_PROD faux en prod, sans un bruit.
+      # `environment` a priorité sur `env_file` : la valeur du .env ne peut pas la contredire.
+      APP_ENV: production
+    # Sans healthcheck, `depends_on` ne garantit que le *démarrage* du container, pas qu'uvicorn
+    # écoute : nginx basculait sur un backend pas encore prêt et rendait des 502 le temps du boot.
+    # python:3.12-slim n'embarque pas curl, on sonde donc via la stdlib, sur la même route
+    # /api/health que le healthcheck de la CI.
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/health', timeout=3).status == 200 else 1)
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      # Le CMD du Dockerfile joue `alembic upgrade head` avant uvicorn : on laisse la migration
+      # finir avant de compter le moindre échec (boot mesuré ~10 s, la marge couvre une migration
+      # lourde sans jamais déclarer l'API morte à tort).
+      start_period: 40s
+
+  nginx:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.nginx
+      args:
+        VITE_FEATURE_EXAMPLE: "false"
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - certbot-www:/var/www/certbot:ro
+      - certbot-certs:/etc/letsencrypt:ro
+    # nginx garde le certificat en mémoire : sans reload périodique, un certificat renouvelé par
+    # certbot n'est servi qu'au prochain déploiement.
+    command: "/bin/sh -c 'while :; do sleep 6h; nginx -s reload; done & exec nginx -g \"daemon off;\"'"
+    # service_healthy et non le simple `- api` : au reboot du VPS comme au déploiement, nginx ne
+    # doit ouvrir le port 443 qu'une fois l'upstream capable de répondre.
+    depends_on:
+      api:
+        condition: service_healthy
+
+  certbot:
+    image: certbot/certbot
+    # Sans restart policy, le conteneur ne repart pas après un reboot du VPS : le certificat
+    # expirerait faute de renouvellement.
+    restart: unless-stopped
+    volumes:
+      - certbot-www:/var/www/certbot
+      - certbot-certs:/etc/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done'"
+
+  backup:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.backup
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      S3_BUCKET: ${S3_BUCKET}
+      # Remote rclone `s3` défini par l'environnement (RCLONE_CONFIG_<REMOTE>_<OPTION>) : le script
+      # n'écrit plus de rclone.conf avec les clés en clair sur le disque du conteneur.
+      RCLONE_CONFIG_S3_TYPE: s3
+      RCLONE_CONFIG_S3_PROVIDER: Other
+      RCLONE_CONFIG_S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
+      RCLONE_CONFIG_S3_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+      RCLONE_CONFIG_S3_ENDPOINT: ${S3_ENDPOINT}
+      RCLONE_CONFIG_S3_REGION: ${S3_REGION}
+      # Clé PUBLIQUE age uniquement : la clé privée vit sur le poste de dev (docs/ops/backups.md).
+      BACKUP_AGE_RECIPIENT: ${BACKUP_AGE_RECIPIENT}
+
+volumes:
+  pgdata:
+  certbot-www:
+  certbot-certs:
