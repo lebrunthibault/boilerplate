@@ -63,3 +63,29 @@ export interface NotificationListResponse {
   // Toujours le compteur global du destinataire — il ne bouge pas quand la page se filtre.
   unread: number;
 }
+
+// --- Journal des appels LLM ---------------------------------------------------
+
+/** Une ligne de `GET /llm-calls` — sans prompt, input ni output. */
+export interface LlmCallSummary {
+  id: number;
+  created_at: string;
+  task: string;
+  model: string;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  // Null quand le modèle n'est pas tarifé (MODEL_PRICING, infra/llm/config.py).
+  cost_usd: number | null;
+  duration_ms: number;
+  error: string | null;
+  target_type: string | null;
+  target_id: string | null;
+}
+
+/** `GET /llm-calls/{id}` : l'appel complet, prompt système réhydraté. */
+export interface LlmCallDetail extends LlmCallSummary {
+  system_prompt: string | null;
+  input: string;
+  output: unknown;
+  retries: { tool: string | null; error: string }[] | null;
+}

@@ -36,6 +36,10 @@ const router = createRouter({
           path: "securite",
           component: () => import("@/pages/admin/AdminSecurityPage.vue"),
         },
+        {
+          path: "llm",
+          component: () => import("@/pages/admin/llm/Index.vue"),
+        },
         // Route derrière un feature flag (cf. config/features.ts) :
         // { path: "example", component: …, beforeEnter: () => (features.example ? true : { path: "/admin" }) },
       ],

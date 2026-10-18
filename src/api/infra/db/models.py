@@ -1,4 +1,5 @@
-"""ORM models du socle : comptes admin, sessions, journal d'authentification, notifications."""
+"""ORM models du socle : comptes admin, sessions, journal d'authentification, notifications,
+journal des appels LLM."""
 
 from __future__ import annotations
 
@@ -8,10 +9,12 @@ from typing import Any
 from sqlalchemy import (
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
     String,
+    Text,
     desc,
     func,
 )
@@ -129,4 +132,51 @@ class AdminNotification(Base):
 
     __table_args__ = (
         Index("ix_admin_notification_inbox", "recipient_admin_id", desc("created_at")),
+    )
+
+
+class LlmPrompt(Base):
+    """System prompt deduplication: each text is stored once, referenced by its sha256."""
+
+    __tablename__ = "llm_prompt"
+
+    hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class LlmCallLog(Base):
+    """One LLM call (cf. ``api.infra.llm.run_llm``), success or failure — written once.
+
+    The target is generic, like notifications: ``target_type`` / ``target_id`` name what the
+    call was about, without a foreign key into a business table. ``input`` may hold personal
+    data: retention bounded by ``Retention.LLM_CALLS``, applied by the daily purge.
+    """
+
+    __tablename__ = "llm_call"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    # Set in Python (the test SQLite does not fill server_default without a refresh).
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    task: Mapped[str] = mapped_column(String(100), nullable=False)
+    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    prompt_hash: Mapped[str] = mapped_column(
+        String(64), ForeignKey("llm_prompt.hash"), nullable=False
+    )
+    input: Mapped[str] = mapped_column(Text, nullable=False)
+    output: Mapped[Any | None] = mapped_column(JSONB, nullable=True)
+    input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cost_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
+    duration_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    retries: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    target_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    target_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    __table_args__ = (
+        Index("ix_llm_call_created_at", desc("created_at")),
+        Index("ix_llm_call_task", "task"),
     )

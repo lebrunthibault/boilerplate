@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from api.app.accounts import router as accounts_router
 from api.app.api_key import require_api_key
 from api.app.debug import router as debug_router
+from api.app.llm_calls import router as llm_calls_router
 from api.app.notifications import router as notifications_router
 from api.app.rate_limit import rate_limit_public
 
@@ -43,4 +44,5 @@ async def ping() -> PingOut:
 admin_router = APIRouter()
 admin_router.include_router(accounts_router)
 admin_router.include_router(notifications_router)
+admin_router.include_router(llm_calls_router)
 admin_router.include_router(debug_router)

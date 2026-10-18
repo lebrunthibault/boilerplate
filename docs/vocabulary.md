@@ -19,6 +19,11 @@ Format : `- **term** (terme français, si différent) — definition, then where
 - **notification** — One inbox row for one admin (`admin_notification`), fanned out at write time
   to every active admin except the actor. Points at a generic **target** (`target_type` +
   `target_id`).
+- **llm task** (tâche LLM) — One kind of LLM call (`LlmTask`): name, system prompt, output type,
+  model tier. Its `name` is the journal key. Lives in `api.infra.llm`.
+- **llm call** (appel LLM) — One run of a task (`run_llm`), success or failure, journaled in
+  `llm_call` with its input, output, tokens and cost; the system prompt is stored once in
+  `llm_prompt` and referenced by sha256.
 - **retention** (conservation) — How long a family of personal data is kept
   (`app/config.py::Retention`), enforced by the daily purge (`app/retention.py`).
 

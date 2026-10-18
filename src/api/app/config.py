@@ -22,6 +22,13 @@ class AccountsPage:
     SIZE_MAX = 100
 
 
+class LlmCallsPage:
+    """Pagination du journal des appels LLM."""
+
+    SIZE = 25
+    SIZE_MAX = 100
+
+
 # --- Conservation des données personnelles (RGPD) ----------------------------
 
 
@@ -36,6 +43,11 @@ class Retention:
     # logs de connexion. Assez long pour enquêter sur une intrusion découverte tardivement,
     # assez court pour ne pas accumuler indéfiniment des IP d'administrateurs.
     AUTH_EVENTS = timedelta(days=365)  # 12 mois
+
+    # Journal des appels LLM (app/llm_calls) : l'input envoyé au modèle peut contenir des données
+    # personnelles. 90 jours suffisent pour déboguer un prompt et suivre les coûts ; à ajuster
+    # avec la finalité réelle (et à reporter dans le registre).
+    LLM_CALLS = timedelta(days=90)
 
     # Cadence de la boucle de purge (main.py::_retention_loop).
     PURGE_INTERVAL = timedelta(days=1)

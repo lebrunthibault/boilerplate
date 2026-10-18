@@ -19,6 +19,9 @@ personnelles. Les cases déjà cochées sont couvertes par le socle ; les autres
 - [x] Journal d'authentification (qui, quand, d'où), conservation bornée
 - [x] Logfire désactivé par défaut ; activé, il ne capture ni corps ni headers HTTP
 - [ ] Aucune donnée personnelle métier dans les logs applicatifs (identifiants techniques seuls)
+- [x] Appels LLM : contenu (prompt, input, output) dans le journal en base seulement (`llm_call`,
+      90 jours, lecture admin) — ni dans les logs ni dans Logfire
+- [ ] Minimisation : n'envoyer au modèle que les champs nécessaires à la tâche
 
 ## Conservation et effacement
 
@@ -45,3 +48,4 @@ personnelles. Les cases déjà cochées sont couvertes par le socle ; les autres
 
 - [ ] Hébergement et sauvegardes dans l'UE
 - [ ] Chaque prestataire hors UE identifié, transfert encadré (SCC), données minimisées
+- [ ] Fournisseur LLM : localisation, DPA, non-rétention et non-entraînement sur les inputs

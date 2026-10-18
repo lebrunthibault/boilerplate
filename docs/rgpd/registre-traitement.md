@@ -54,6 +54,21 @@
 
 ---
 
+## Traitement n°4 — Journal des appels LLM
+
+| Rubrique | Contenu |
+|---|---|
+| **Finalité principale** | Mise au point et contrôle des traitements automatisés par IA : relire ce qui a été envoyé au modèle et ce qu'il a répondu, diagnostiquer un échec, suivre les coûts |
+| **Base légale** | Intérêt légitime (art. 6.1.f) — [à confirmer selon la finalité métier des appels] |
+| **Catégories de personnes** | [Personnes dont les données figurent dans les inputs envoyés au modèle — à compléter] |
+| **Catégories de données** | Prompt système (texte du code, sans donnée personnelle) ; input envoyé au modèle et output reçu, [catégories à compléter] ; modèle, tokens, coût, durée, erreur ; référence générique de l'objet traité (type + id) |
+| **Destinataires / sous-traitants** | Fournisseur du modèle : [Sous-traitant LLM — pays, DPA, engagement de non-rétention / non-entraînement] ; journal interne consulté par les administrateurs (écran « Appels LLM ») |
+| **Transferts hors UE** | [Selon le fournisseur retenu — aucun si fournisseur opéré en UE] |
+| **Durée de conservation** | **90 jours** puis suppression automatique (purge quotidienne, `Retention.LLM_CALLS`) ; prompts système conservés (pas de donnée personnelle) |
+| **Mesures de sécurité** | Lecture réservée aux administrateurs authentifiés ; input tronqué (`LlmCall.INPUT_LOG_CHARS`) ; aucun contenu dans les logs applicatifs ni dans Logfire (pas d'`instrument_pydantic_ai`) |
+
+---
+
 ## Points de vigilance
 
 - [Sous-traitants : DPA signés et archivés ?]

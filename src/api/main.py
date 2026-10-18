@@ -50,6 +50,8 @@ if _logfire_enabled:
     # Volontairement PAS de capture_all=True : il exporterait les corps et headers de toutes les
     # requêtes HTTP sortantes vers Logfire. On ne conserve que des métadonnées (URL, statut,
     # durée) et les spans SQL sans paramètres.
+    # Volontairement PAS de instrument_pydantic_ai() non plus : il exporterait les prompts, les
+    # inputs et les outputs des appels LLM. Ils restent dans le journal en base (llm_call).
     logfire.instrument_httpx()
     logfire.instrument_asyncpg()
 else:

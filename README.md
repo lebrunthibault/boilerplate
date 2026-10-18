@@ -13,6 +13,10 @@ reste à écrire — dans `src/api/domain/` et les pages admin.
 - **Console admin** : connexion, comptes (liste, désactivation sous step-up), journal de sécurité,
   boîte de réception (notifications fan-out vers les autres admins, lu/non-lu, pliage des mises à
   jour répétées).
+- **Appels LLM** (pydantic-ai, tout fournisseur) : une tâche déclarée (`LlmTask`), un seul point
+  d'appel (`run_llm`), et chaque appel journalisé automatiquement en base — prompt système
+  (dédoublonné), input, output, tokens, coût, durée, retries, erreur — consultable dans l'écran
+  admin « Appels LLM ». Inerte tant que `LLM_MODEL_*` est vide.
 - **Pages publiques** : landing et politique de confidentialité (art. 13) en placeholders.
 - **Durcissement prod** piloté par `APP_ENV` : fail-closed sans `ALLOWED_ORIGINS` /
   `SERVICE_API_KEY`, CORS sans wildcard, rate limit des routes publiques, purge de rétention
@@ -36,7 +40,7 @@ boilerplate/
 │   │   ├── main.py         # Point d'entrée : logging, lifespan, CORS, erreurs, routeurs, SPA
 │   │   ├── app/            # Routers, auth, comptes, notifications, rétention, config
 │   │   ├── domain/         # Cœur métier, sans état (à écrire)
-│   │   ├── infra/          # DB (moteur, modèles ORM), config technique, traces de perf
+│   │   ├── infra/          # DB (moteur, modèles ORM), LLM, config technique, traces de perf
 │   │   └── alembic/        # Migrations
 │   └── frontend/           # Dashboard (Vite + Vue 3 + Tailwind 4 + bun)
 ├── docker/                 # Dockerfiles, compose dev/prod, nginx
@@ -83,6 +87,45 @@ déploiement (`/opt/boilerplate`), titre (`index.html`, `main.py`) et wordmark (
 3. GitHub : secrets `VPS_HOST`, `VPS_SSH_USER`, `VPS_SSH_KEY` ; variables `APP_URL`, `APP_DIR`.
 4. `git push` sur `main` : la CI teste, déploie et vérifie `/api/health`.
 5. `make create-admin-prod email=…` pour le premier compte.
+
+## Appels LLM
+
+1. Choisir le modèle dans `.env` : `LLM_MODEL_SMALL=mistral:mistral-small-latest` (format
+   pydantic-ai `provider:model`) et la clé du fournisseur (`MISTRAL_API_KEY`…). Tarif dans
+   `src/api/infra/llm/config.py::MODEL_PRICING` pour avoir le coût.
+2. Déclarer la tâche et l'appeler — depuis `domain/` comme depuis `app/` :
+
+   ```python
+   from pydantic import BaseModel
+   from api.infra.llm import LlmTask, run_llm
+
+   class Summary(BaseModel):
+       title: str
+       key_points: list[str]
+
+   SUMMARIZE = LlmTask(name="summarize", system_prompt="Résume le texte.", output_type=Summary)
+
+   async def summarize(text: str) -> Summary:
+       return await run_llm(SUMMARIZE, text)
+   ```
+
+3. Envelopper l'unité de travail (route, tâche de fond) dans le journal, côté `app/` :
+
+   ```python
+   from api.app.llm_calls import LlmSubject, llm_journal
+
+   async with llm_journal(session, LlmSubject("ticket", str(ticket.id))):
+       summary = await summarize(ticket.body)
+   ```
+
+   À la sortie, chaque appel du bloc est écrit dans `llm_call` (échecs compris) et commité. Hors
+   `llm_journal`, `run_llm` marche aussi mais ne laisse qu'une ligne de log sans contenu.
+4. Tests sans réseau : `monkeypatch.setenv("LLM_MODEL_SMALL", "test")` (modèle `TestModel` de
+   pydantic-ai), ou `with agent_for(TASK).override(model=TestModel(custom_output_args={…})):` —
+   cf. `tests/test_llm_calls.py`.
+
+Le journal garde les inputs 90 jours (`Retention.LLM_CALLS`) : ils peuvent contenir des données
+personnelles, et le fournisseur LLM est un sous-traitant à déclarer (`docs/rgpd/`).
 
 ## Ajouter une feature métier
 

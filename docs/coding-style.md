@@ -16,7 +16,10 @@ Court et actionnable, pas un cours de DDD. En cas de doute, le code du socle (`a
   - `app/` — entrypoints : routers FastAPI, auth, persistance, tâches de fond, rétention.
   - `domain/` — le cœur métier, **sans état** : ni SQLAlchemy, ni FastAPI, ni `api.infra.db`
     (contrat import-linter `domain-stateless`). Il reçoit et rend des modèles typés.
-  - `infra/` — technique transverse : `db`, `config`, `perf_trace`.
+  - `infra/` — technique transverse : `db`, `llm`, `config`, `perf_trace`.
+- **Tout appel LLM passe par `api.infra.llm.run_llm`** sur une `LlmTask` déclarée au niveau module :
+  jamais d'`Agent` pydantic-ai instancié à la main, sinon l'appel échappe au journal (`llm_call`).
+  Le domaine appelle `run_llm` ; la couche app ouvre `llm_journal` autour de l'unité de travail.
 - **1 package = 1 point d'entrée public** : une façade `__init__.py` (re-export explicite + `__all__`)
   ou un `service.py`. On importe **la façade** d'un autre package, **jamais un de ses sous-fichiers**.
   Imposé en CI par `import-linter` (`make lint`) dès qu'un contrat le déclare. Modèle de référence :
