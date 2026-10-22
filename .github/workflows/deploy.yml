@@ -60,6 +60,11 @@ jobs:
     # Le déploiement ne part que si le gate est vert : mieux vaut ne jamais toucher la prod que
     # la réparer après coup (le healthcheck ci-dessous, lui, échoue quand le mal est déjà fait).
     needs: test
+    # Tant que la prod n'est pas configurée (variable APP_DIR absente), on s'arrête au gate :
+    # un deploy sans hôte échouerait sur « missing server host » et peindrait la CI en rouge
+    # alors que le code est sain. Le contexte `secrets` n'est pas lisible dans un `if` de job,
+    # d'où le test sur une variable, obligatoire de toute façon pour le `cd`.
+    if: vars.APP_DIR != ''
     runs-on: ubuntu-latest
     steps:
       - name: Deploy via SSH
